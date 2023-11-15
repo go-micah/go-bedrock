@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	
+
 	prompt := "Please write me a short poem about a chicken"
 
 	var options bedrock.Options
@@ -27,7 +27,7 @@ func main() {
 
 	resp, err := bedrock.SendToBedrock(prompt, options)
 	if err != nil {
-		fmt.Printf("error: %v", err)
+		log.Fatal("error", err)
 	}
 
 	var response bedrock.AnthropicResponse
