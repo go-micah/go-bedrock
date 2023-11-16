@@ -6,242 +6,111 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
 )
 
-// Options is a struct that represents all the available LLM options and prompt data
-type Options struct {
-	Document          string
+type ModelInvoker interface {
+	InvokeModel() (*bedrockruntime.InvokeModelOutput, error)
+	InvokeModelWithResponseStream() (*bedrockruntime.InvokeModelWithResponseStreamOutput, error)
+	GetText(resp *bedrockruntime.InvokeModelOutput) (string, error)
+	GetDecodedImage(resp *bedrockruntime.InvokeModelOutput) ([]byte, error)
+}
+
+type AI21LabsJurassic struct {
 	Region            string
-	ModelID           string
-	MaxTokensToSample int
-	TopP              float64
-	TopK              int
+	ModelId           string
+	PromptRequest     string
 	Temperature       float64
+	TopP              float64
+	MaxTokensToSample int
+	StopSequences     []string
+	Completions       []AI21LabsJurassicCompletions `json:"completions"`
+}
+
+type AI21LabsJurassicCompletions struct {
+	Data AI21LabsJurassicData `json:"data"`
+}
+
+type AI21LabsJurassicData struct {
+	Text string `json:"text"`
+}
+
+type AnthropicClaude struct {
+	Region            string
+	ModelId           string
+	Prompt            string
+	MaxTokensToSample int
+	Temperature       float64
+	TopK              int
+	TopP              float64
+	StopSequences     []string
+	Completion        string `json:"completion"`
+}
+
+type AmazonTitanText struct {
+}
+
+type AmazonTitanEmbeddings struct {
+}
+
+type CohereCommand struct {
+	Region            string
+	ModelId           string
+	Prompt            string
+	Temperature       float64
+	TopP              float64
+	TopK              float64
+	MaxTokensToSample int
 	StopSequences     []string
 	ReturnLiklihoods  string
 	Stream            bool
-	Scale             int
-	Seed              int
-	Steps             int
+	NumGenerations    int
+	Generations       []CohereCommandGeneration `json:"generations"`
 }
 
-// AnthropicResponse is a struct that represents the response from Bedrock
-type AnthropicResponse struct {
-	Completion string
-}
-
-// CohereResponse is a struct that represents the response from Cohere
-type CohereResponse struct {
-	Generations []CohereResponseGeneration `json:"generations"`
-}
-
-// CohereResponseGeneration is a struct that represents a generation from Cohere
-type CohereResponseGeneration struct {
+type CohereCommandGeneration struct {
 	ID   string `json:"id"`
 	Text string `json:"text"`
 }
 
-// AI21Response is a struct that represents the response from Cohere
-type AI21Response struct {
-	Completion string
+type CohereEmbed struct {
 }
 
-// MetaResponse is a struct that represents the response from Bedrock
-type MetaResponse struct {
-	Generation string `json:"generation"`
-}
-
-// StabilityResponse is a struct that represents the response from Stability
-type StabilityResponse struct {
-	Result    string              `json:"result"`
-	Artifacts []StabilityArtifact `json:"artifacts"`
-}
-
-// StabilityArtifact is a struct that represents an artifact from Stability
-type StabilityArtifact struct {
-	Base64       string `json:"base64"`
-	FinishReason string `json:"finishReason"`
-}
-
-// AnthropicPayloadBody is a struct that represents the payload body for the post request to Bedrock
-type AnthropicPayloadBody struct {
-	Prompt            string   `json:"prompt"`
-	MaxTokensToSample int      `json:"max_tokens_to_sample"`
-	Temperature       float64  `json:"temperature"`
-	TopK              int      `json:"top_k"`
-	TopP              float64  `json:"top_p"`
-	StopSequences     []string `json:"stop_sequences"`
-}
-
-// A121PayloadBody is a struct that represents the payload body for the post request to Bedrock
-type AI21PayloadBody struct {
-	Prompt            string   `json:"prompt"`
-	Temperature       float64  `json:"temperature"`
-	TopP              float64  `json:"topP"`
-	MaxTokensToSample int      `json:"maxTokens"`
-	StopSequences     []string `json:"stopSequences"`
-}
-
-// CoherePayloadBody is a struct that represents the payload body for the post request to Bedrock
-type CoherePayloadBody struct {
-	Prompt            string   `json:"prompt"`
-	Temperature       float64  `json:"temperature"`
-	TopP              float64  `json:"p"`
-	TopK              float64  `json:"k"`
-	MaxTokensToSample int      `json:"max_tokens"`
-	StopSequences     []string `json:"stop_sequences"`
-	ReturnLiklihoods  string   `json:"return_likelihoods"`
-	Stream            bool     `json:"stream"`
-	// Generations       int      `json:"num_generations"`
-}
-
-// MetaPayloadBody is a struct that represents the payload body for the post request to Bedrock
-type MetaPayloadBody struct {
+type MetaLlama struct {
+	Region            string
+	ModelId           string
 	Prompt            string  `json:"prompt"`
 	Temperature       float64 `json:"temperature"`
 	TopP              float64 `json:"top_p"`
 	MaxTokensToSample int     `json:"max_gen_len"`
+	Generation        string  `json:"generation"`
 }
 
-// StabilityTextPrompts is a struct that represents the text prompts for the post request to Bedrock
-type StabilityTextPrompts struct {
+type StabilityAISD struct {
+	Region    string
+	ModelId   string
+	Prompt    []StabilityAISDTextPrompts
+	Scale     float64
+	Steps     int
+	Seed      int
+	Result    string                  `json:"result"`
+	Artifacts []StabilityAISDArtifact `json:"artifacts"`
+}
+
+type StabilityAISDTextPrompts struct {
 	Text string `json:"text"`
 }
 
-// StabilityPayloadBody is a struct that represents the payload body for the post request to Bedrock
-type StabilityPayloadBody struct {
-	Prompt []StabilityTextPrompts `json:"text_prompts"`
-	Scale  float64                `json:"cfg_scale"`
-	Steps  int                    `json:"steps"`
-	Seed   int                    `json:"seed"`
+type StabilityAISDArtifact struct {
+	Base64       string `json:"base64"`
+	FinishReason string `json:"finishReason"`
 }
 
-// DecodeImage is a function that decodes the image from the response
-func (a *StabilityArtifact) DecodeImage() ([]byte, error) {
-	decoded, err := base64.StdEncoding.DecodeString(a.Base64)
-	if err != nil {
-		return nil, err
-	}
-	return decoded, nil
-}
+func sendToBedrock(payload []byte, modelId string, region string) (*bedrockruntime.InvokeModelOutput, error) {
 
-// SerializePayload is a function that serializes the payload body before sending to Bedrock
-func SerializePayload(prompt string, options Options) ([]byte, error) {
-
-	if options.Document != "" {
-		prompt = options.Document + prompt
-	}
-
-	model := options.ModelID
-	modelTLD := model[:strings.IndexByte(model, '.')]
-
-	// if config says anthropic, use AnthropicPayloadBody
-	if modelTLD == "anthropic" {
-
-		var body AnthropicPayloadBody
-		body.Prompt = "Human: \n\nHuman: " + prompt + "\n\nAssistant:"
-		body.MaxTokensToSample = options.MaxTokensToSample
-		body.Temperature = options.Temperature
-		body.TopK = options.TopK
-		body.TopP = options.TopP
-		body.StopSequences = options.StopSequences
-
-		payloadBody, err := json.Marshal(body)
-		if err != nil {
-			return nil, fmt.Errorf("unable to marshal payload body, %v", err)
-		}
-
-		return payloadBody, nil
-	}
-
-	// if config says ai21, use AI21PayloadBody
-	if modelTLD == "ai21" {
-
-		var body AI21PayloadBody
-		body.Prompt = prompt
-		body.Temperature = options.Temperature
-		body.TopP = options.TopP
-		body.MaxTokensToSample = options.MaxTokensToSample
-		body.StopSequences = options.StopSequences
-
-		payloadBody, err := json.Marshal(body)
-		if err != nil {
-			return nil, fmt.Errorf("unable to marshal payload body, %v", err)
-		}
-
-		return payloadBody, nil
-	}
-
-	// if config says cohere, use CoherePayloadBody
-	if modelTLD == "cohere" {
-
-		var body CoherePayloadBody
-		body.Prompt = prompt
-		body.Temperature = options.Temperature
-		body.TopP = options.TopP
-		body.TopK = float64(options.TopK)
-		body.MaxTokensToSample = options.MaxTokensToSample
-		body.StopSequences = options.StopSequences
-		body.ReturnLiklihoods = options.ReturnLiklihoods
-		body.Stream = options.Stream
-
-		payloadBody, err := json.Marshal(body)
-		if err != nil {
-			return nil, fmt.Errorf("unable to marshal payload body, %v", err)
-		}
-
-		return payloadBody, nil
-	}
-
-	// if config says meta, use MetaPayloadBody
-	if modelTLD == "meta" {
-
-		var body MetaPayloadBody
-		body.Prompt = prompt
-		body.Temperature = options.Temperature
-		body.TopP = options.TopP
-		body.MaxTokensToSample = options.MaxTokensToSample
-
-		payloadBody, err := json.Marshal(body)
-		if err != nil {
-			return nil, fmt.Errorf("unable to marshal payload body, %v", err)
-		}
-
-		return payloadBody, nil
-	}
-
-	// if config says stability, use StabilityPayloadBody
-	if modelTLD == "stability" {
-
-		var text StabilityTextPrompts
-		text.Text = prompt
-
-		var body StabilityPayloadBody
-		body.Prompt = []StabilityTextPrompts{{Text: prompt}}
-		body.Scale = 10
-		body.Seed = 0
-		body.Steps = 50
-
-		payloadBody, err := json.Marshal(body)
-		if err != nil {
-			return nil, fmt.Errorf("unable to marshal payload body, %v", err)
-		}
-
-		return payloadBody, nil
-	}
-
-	return nil, fmt.Errorf("invalid model, %v", options.ModelID)
-
-}
-
-// SendToBedrockWithResponseStream is a function that sends a post request to Bedrock and returns the streaming response
-func SendToBedrockWithResponseStream(prompt string, options Options) (*bedrockruntime.InvokeModelWithResponseStreamOutput, error) {
-
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(options.Region))
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
 	if err != nil {
 		return nil, fmt.Errorf("unable to load AWS SDK config, %v", err)
 	}
@@ -249,55 +118,396 @@ func SendToBedrockWithResponseStream(prompt string, options Options) (*bedrockru
 	svc := bedrockruntime.NewFromConfig(cfg)
 
 	accept := "*/*"
-	modelId := options.ModelID
 	contentType := "application/json"
-
-	payloadBody, err := SerializePayload(prompt, options)
-	if err != nil {
-		return nil, fmt.Errorf("unable to serialize payload body, %v", err)
-	}
-
-	resp, err := svc.InvokeModelWithResponseStream(context.TODO(), &bedrockruntime.InvokeModelWithResponseStreamInput{
-		Accept:      &accept,
-		ModelId:     &modelId,
-		ContentType: &contentType,
-		Body:        []byte(string(payloadBody)),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("error from Bedrock, %v", err)
-	}
-
-	return resp, nil
-}
-
-// SendToBedrock is a function that sends a post request to Bedrock and returns the response
-func SendToBedrock(prompt string, options Options) (*bedrockruntime.InvokeModelOutput, error) {
-
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(options.Region))
-	if err != nil {
-		return nil, fmt.Errorf("unable to load AWS SDK config, %v", err)
-	}
-
-	svc := bedrockruntime.NewFromConfig(cfg)
-
-	accept := "*/*"
-	modelId := options.ModelID
-	contentType := "application/json"
-
-	payloadBody, err := SerializePayload(prompt, options)
-	if err != nil {
-		return nil, fmt.Errorf("unable to serialize payload body, %v", err)
-	}
 
 	resp, err := svc.InvokeModel(context.TODO(), &bedrockruntime.InvokeModelInput{
 		Accept:      &accept,
 		ModelId:     &modelId,
 		ContentType: &contentType,
-		Body:        []byte(string(payloadBody)),
+		Body:        []byte(string(payload)),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error from Bedrock, %v", err)
 	}
 
 	return resp, nil
+}
+
+func sendToBedrockWithResponseStream(payload []byte, modelId string, region string) (*bedrockruntime.InvokeModelWithResponseStreamOutput, error) {
+
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+	if err != nil {
+		return nil, fmt.Errorf("unable to load AWS SDK config, %v", err)
+	}
+
+	svc := bedrockruntime.NewFromConfig(cfg)
+
+	accept := "*/*"
+	contentType := "application/json"
+
+	resp, err := svc.InvokeModelWithResponseStream(context.TODO(), &bedrockruntime.InvokeModelWithResponseStreamInput{
+		Accept:      &accept,
+		ModelId:     &modelId,
+		ContentType: &contentType,
+		Body:        []byte(string(payload)),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error from Bedrock, %v", err)
+	}
+
+	return resp, nil
+}
+
+func (ai AI21LabsJurassic) InvokeModel() (*bedrockruntime.InvokeModelOutput, error) {
+
+	type Payload struct {
+		Prompt            string   `json:"prompt"`
+		Temperature       float64  `json:"temperature"`
+		TopP              float64  `json:"topP"`
+		MaxTokensToSample int      `json:"maxTokens"`
+		StopSequences     []string `json:"stopSequences"`
+	}
+
+	payload := Payload{
+		Prompt:            ai.PromptRequest,
+		MaxTokensToSample: ai.MaxTokensToSample,
+		Temperature:       ai.Temperature,
+		TopP:              ai.TopP,
+		StopSequences:     ai.StopSequences,
+	}
+
+	payloadBody, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal payload body, %v", err)
+	}
+
+	resp, err := sendToBedrock(payloadBody, ai.ModelId, ai.Region)
+	if err != nil {
+		return nil, fmt.Errorf("error from Bedrock, %v", err)
+	}
+
+	return resp, nil
+}
+
+func (ac AnthropicClaude) InvokeModel() (*bedrockruntime.InvokeModelOutput, error) {
+
+	type Payload struct {
+		Prompt            string   `json:"prompt"`
+		MaxTokensToSample int      `json:"max_tokens_to_sample"`
+		Temperature       float64  `json:"temperature"`
+		TopK              int      `json:"top_k"`
+		TopP              float64  `json:"top_p"`
+		StopSequences     []string `json:"stop_sequences"`
+	}
+
+	payload := Payload{
+		Prompt:            ac.Prompt,
+		MaxTokensToSample: ac.MaxTokensToSample,
+		Temperature:       ac.Temperature,
+		TopK:              ac.TopK,
+		TopP:              ac.TopP,
+		StopSequences:     ac.StopSequences,
+	}
+
+	payloadBody, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal payload body, %v", err)
+	}
+
+	resp, err := sendToBedrock(payloadBody, ac.ModelId, ac.Region)
+	if err != nil {
+		return nil, fmt.Errorf("error from Bedrock, %v", err)
+	}
+	return resp, nil
+}
+
+func (cc CohereCommand) InvokeModel() (*bedrockruntime.InvokeModelOutput, error) {
+
+	type Payload struct {
+		Prompt            string   `json:"prompt"`
+		Temperature       float64  `json:"temperature"`
+		TopP              float64  `json:"p"`
+		TopK              float64  `json:"k"`
+		MaxTokensToSample int      `json:"max_tokens"`
+		StopSequences     []string `json:"stop_sequences"`
+		ReturnLiklihoods  string   `json:"return_likelihoods"`
+		Stream            bool     `json:"stream"`
+		NumGenerations    int      `json:"num_generations"`
+	}
+
+	payload := Payload{
+		Prompt:            cc.Prompt,
+		Temperature:       cc.Temperature,
+		TopK:              cc.TopK,
+		TopP:              cc.TopP,
+		MaxTokensToSample: cc.MaxTokensToSample,
+		StopSequences:     cc.StopSequences,
+		ReturnLiklihoods:  cc.ReturnLiklihoods,
+		Stream:            false,
+		NumGenerations:    cc.NumGenerations,
+	}
+
+	payloadBody, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal payload body, %v", err)
+	}
+
+	resp, err := sendToBedrock(payloadBody, cc.ModelId, cc.Region)
+	if err != nil {
+		return nil, fmt.Errorf("error from Bedrock, %v", err)
+	}
+
+	return resp, nil
+}
+
+func (ml MetaLlama) InvokeModel() (*bedrockruntime.InvokeModelOutput, error) {
+
+	type Payload struct {
+		Prompt            string  `json:"prompt"`
+		Temperature       float64 `json:"temperature"`
+		TopP              float64 `json:"top_p"`
+		MaxTokensToSample int     `json:"max_gen_len"`
+	}
+
+	payload := Payload{
+		Prompt:            ml.Prompt,
+		Temperature:       ml.Temperature,
+		TopP:              ml.TopP,
+		MaxTokensToSample: ml.MaxTokensToSample,
+	}
+
+	payloadBody, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal payload body, %v", err)
+	}
+
+	resp, err := sendToBedrock(payloadBody, ml.ModelId, ml.Region)
+	if err != nil {
+		return nil, fmt.Errorf("error from Bedrock, %v", err)
+	}
+
+	return resp, nil
+}
+
+func (sd StabilityAISD) InvokeModel() (*bedrockruntime.InvokeModelOutput, error) {
+
+	type Payload struct {
+		Prompt []StabilityAISDTextPrompts `json:"text_prompts"`
+		Scale  float64                    `json:"cfg_scale"`
+		Steps  int                        `json:"steps"`
+		Seed   int                        `json:"seed"`
+	}
+
+	payload := Payload{
+		Prompt: sd.Prompt,
+		Scale:  sd.Scale,
+		Steps:  sd.Steps,
+		Seed:   sd.Seed,
+	}
+
+	payloadBody, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal payload body, %v", err)
+	}
+
+	resp, err := sendToBedrock(payloadBody, sd.ModelId, sd.Region)
+	if err != nil {
+		return nil, fmt.Errorf("error from Bedrock, %v", err)
+	}
+
+	return resp, nil
+}
+
+func (ai AI21LabsJurassic) InvokeModelWithResponseStream() (*bedrockruntime.InvokeModelWithResponseStreamOutput, error) {
+	return nil, fmt.Errorf("this model does not support streaming")
+}
+
+func (sd StabilityAISD) InvokeModelWithResponseStream() (*bedrockruntime.InvokeModelWithResponseStreamOutput, error) {
+	return nil, fmt.Errorf("this model does not support streaming")
+}
+
+func (ac AnthropicClaude) InvokeModelWithResponseStream() (*bedrockruntime.InvokeModelWithResponseStreamOutput, error) {
+
+	type Payload struct {
+		Prompt            string   `json:"prompt"`
+		MaxTokensToSample int      `json:"max_tokens_to_sample"`
+		Temperature       float64  `json:"temperature"`
+		TopK              int      `json:"top_k"`
+		TopP              float64  `json:"top_p"`
+		StopSequences     []string `json:"stop_sequences"`
+	}
+
+	payload := Payload{
+		Prompt:            ac.Prompt,
+		MaxTokensToSample: ac.MaxTokensToSample,
+		Temperature:       ac.Temperature,
+		TopK:              ac.TopK,
+		TopP:              ac.TopP,
+		StopSequences:     ac.StopSequences,
+	}
+
+	payloadBody, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal payload body, %v", err)
+	}
+
+	resp, err := sendToBedrockWithResponseStream(payloadBody, ac.ModelId, ac.Region)
+	if err != nil {
+		return nil, fmt.Errorf("error from Bedrock, %v", err)
+	}
+
+	return resp, nil
+
+}
+
+func (cc CohereCommand) InvokeModelWithResponseStream() (*bedrockruntime.InvokeModelWithResponseStreamOutput, error) {
+
+	type Payload struct {
+		Prompt            string   `json:"prompt"`
+		Temperature       float64  `json:"temperature"`
+		TopP              float64  `json:"p"`
+		TopK              float64  `json:"k"`
+		MaxTokensToSample int      `json:"max_tokens"`
+		StopSequences     []string `json:"stop_sequences"`
+		ReturnLiklihoods  string   `json:"return_likelihoods"`
+		Stream            bool     `json:"stream"`
+		NumGenerations    int      `json:"num_generations"`
+	}
+
+	payload := Payload{
+		Prompt:            cc.Prompt,
+		Temperature:       cc.Temperature,
+		TopK:              cc.TopK,
+		TopP:              cc.TopP,
+		MaxTokensToSample: cc.MaxTokensToSample,
+		StopSequences:     cc.StopSequences,
+		ReturnLiklihoods:  cc.ReturnLiklihoods,
+		Stream:            true,
+		NumGenerations:    cc.NumGenerations,
+	}
+
+	payloadBody, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal payload body, %v", err)
+	}
+
+	resp, err := sendToBedrockWithResponseStream(payloadBody, cc.ModelId, cc.Region)
+	if err != nil {
+		return nil, fmt.Errorf("error from Bedrock, %v", err)
+	}
+
+	return resp, nil
+}
+
+func (ml MetaLlama) InvokeModelWithResponseStream() (*bedrockruntime.InvokeModelWithResponseStreamOutput, error) {
+
+	type Payload struct {
+		Prompt            string  `json:"prompt"`
+		Temperature       float64 `json:"temperature"`
+		TopP              float64 `json:"top_p"`
+		MaxTokensToSample int     `json:"max_gen_len"`
+	}
+
+	payload := Payload{
+		Prompt:            ml.Prompt,
+		Temperature:       ml.Temperature,
+		TopP:              ml.TopP,
+		MaxTokensToSample: ml.MaxTokensToSample,
+	}
+
+	payloadBody, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal payload body, %v", err)
+	}
+
+	resp, err := sendToBedrockWithResponseStream(payloadBody, ml.ModelId, ml.Region)
+	if err != nil {
+		return nil, fmt.Errorf("error from Bedrock, %v", err)
+	}
+
+	return resp, nil
+}
+
+func (ai AI21LabsJurassic) GetText(resp *bedrockruntime.InvokeModelOutput) (string, error) {
+
+	var jurassic AI21LabsJurassic
+
+	err := json.Unmarshal(resp.Body, &jurassic)
+
+	if err != nil {
+		return "", fmt.Errorf("failed to unmarshal json, %v", err)
+	}
+
+	return jurassic.Completions[0].Data.Text, nil
+}
+
+func (ac AnthropicClaude) GetText(resp *bedrockruntime.InvokeModelOutput) (string, error) {
+
+	var claude AnthropicClaude
+
+	err := json.Unmarshal(resp.Body, &claude)
+
+	if err != nil {
+		return "", fmt.Errorf("failed to unmarshal json, %v", err)
+	}
+
+	return claude.Completion, nil
+}
+
+func (cc CohereCommand) GetText(resp *bedrockruntime.InvokeModelOutput) (string, error) {
+
+	var command CohereCommand
+
+	err := json.Unmarshal(resp.Body, &command)
+
+	if err != nil {
+		return "", fmt.Errorf("failed to unmarshal json, %v", err)
+	}
+
+	return command.Generations[0].Text, nil
+}
+
+func (ml MetaLlama) GetText(resp *bedrockruntime.InvokeModelOutput) (string, error) {
+
+	var llama MetaLlama
+
+	err := json.Unmarshal(resp.Body, &llama)
+
+	if err != nil {
+		return "", fmt.Errorf("failed to unmarshal json, %v", err)
+	}
+
+	return llama.Generation, nil
+}
+
+func (sd StabilityAISD) GetText(resp *bedrockruntime.InvokeModelOutput) (string, error) {
+	return "", fmt.Errorf("this model does not support GetText")
+}
+
+func (sd StabilityAISD) GetDecodedImage(resp *bedrockruntime.InvokeModelOutput) ([]byte, error) {
+
+	var stability StabilityAISD
+	err := json.Unmarshal(resp.Body, &stability)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal json, %v", err)
+	}
+
+	decoded, err := stability.Artifacts[0].decodeImage()
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode base64 response %v", err)
+	}
+
+	return decoded, nil
+
+}
+
+// decodeImage is a function that decodes the image from the response
+func (a *StabilityAISDArtifact) decodeImage() ([]byte, error) {
+	decoded, err := base64.StdEncoding.DecodeString(a.Base64)
+	if err != nil {
+		return nil, err
+	}
+	return decoded, nil
 }
