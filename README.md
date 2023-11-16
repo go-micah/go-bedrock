@@ -7,31 +7,28 @@ A wrapper around the Amazon Bedrock API written in Go
 ```go
 prompt := "Please write me a short poem about a chicken"
 
-var options bedrock.Options
+// prepare payload for Anthropic Claude v2
+claude := bedrock.AnthropicClaude{
+    Region:            "us-east-1",
+    ModelId:           "anthropic.claude-v2",
+    Prompt:            "Human: \n\nHuman: " + prompt + "\n\nAssistant:",
+    MaxTokensToSample: 500,
+    TopP:              0.999,
+    TopK:              250,
+    Temperature:       1,
+    StopSequences:     []string{`"\n\nHuman:\"`},
+}
 
-options.ModelID = "anthropic.claude-v2"
-options.Region = "us-east-1"
+fmt.Println("Sending prompt to Anthropic Claude v2")
 
-options.MaxTokensToSample = 500
-
-options.Temperature = 1
-options.TopP = 0.999
-options.TopK = 250
-
-options.StopSequences = []string{`"\n\nHuman:\"`}
-
-resp, err := bedrock.SendToBedrock(prompt, options)
+resp, err := claude.InvokeModel()
 if err != nil {
     log.Fatal("error", err)
 }
 
-var response bedrock.AnthropicResponse
-
-err = json.Unmarshal(resp.Body, &response)
-
+text, err := claude.GetText(resp)
 if err != nil {
-    log.Fatal("failed to unmarshal", err)
+    log.Fatal("error", err)
 }
-
-fmt.Print(response.Completion)
+fmt.Println(text)
 ```
