@@ -1,3 +1,5 @@
+[![Go Reference](https://pkg.go.dev/badge/github.com/go-micah/go-bedrock.svg)](https://pkg.go.dev/github.com/go-micah/go-bedrock)
+
 # go-bedrock
 
 A wrapper around the Amazon Bedrock API written in Go
