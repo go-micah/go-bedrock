@@ -7,30 +7,52 @@ A wrapper around the Amazon Bedrock API written in Go
 ## Use
 
 ```go
-prompt := "Please write me a short poem about a chicken"
+	prompt := "Please write me a short poem about a chicken"
 
-// prepare payload for Anthropic Claude v2
-claude := bedrock.AnthropicClaude{
-    Region:            "us-east-1",
-    ModelId:           "anthropic.claude-v2",
-    Prompt:            "Human: \n\nHuman: " + prompt + "\n\nAssistant:",
-    MaxTokensToSample: 500,
-    TopP:              0.999,
-    TopK:              250,
-    Temperature:       1,
-    StopSequences:     []string{`"\n\nHuman:\"`},
-}
+	// prepare payload for Anthropic Claude v2
+	body := providers.AnthropicClaudeInvokeModelInput{
+		Prompt:            "Human: \n\nHuman: " + prompt + "\n\nAssistant:",
+		MaxTokensToSample: 500,
+		TopP:              0.999,
+		TopK:              250,
+		Temperature:       1,
+		StopSequences:     []string{`"\n\nHuman:\"`},
+	}
 
-fmt.Println("Sending prompt to Anthropic Claude v2")
+	fmt.Println("Sending prompt to Anthropic Claude v2")
 
-resp, err := claude.InvokeModel()
-if err != nil {
-    log.Fatal("error", err)
-}
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion("us-east-1"))
+	if err != nil {
+		log.Fatalf("unable to load AWS SDK config, %v", err)
+	}
 
-text, err := claude.GetText(resp)
-if err != nil {
-    log.Fatal("error", err)
-}
-fmt.Println(text)
+	svc := bedrockruntime.NewFromConfig(cfg)
+
+	accept := "*/*"
+	contentType := "application/json"
+	modelId := "anthropic.claude-v2"
+
+	bodyString, err := json.Marshal(body)
+	if err != nil {
+		fmt.Printf("unable to Marshal, %v", err)
+	}
+
+	resp, err := svc.InvokeModel(context.TODO(), &bedrockruntime.InvokeModelInput{
+		Accept:      &accept,
+		ModelId:     &modelId,
+		ContentType: &contentType,
+		Body:        bodyString,
+	})
+	if err != nil {
+		log.Fatalf("error from Bedrock, %v", err)
+	}
+
+	var out providers.AnthropicClaudeInvokeModelOutput
+
+	err = json.Unmarshal(resp.Body, &out)
+	if err != nil {
+		fmt.Printf("unable to Unmarshal JSON, %v", err)
+	}
+
+	fmt.Println(out.Completion)
 ```
