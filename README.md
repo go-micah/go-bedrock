@@ -7,6 +7,21 @@ A wrapper around the Amazon Bedrock API written in Go
 ## Use
 
 ```go
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
+	"github.com/go-micah/go-bedrock/providers"
+)
+
+func main() {
+
 	prompt := "Please write me a short poem about a chicken"
 
 	// prepare payload for Anthropic Claude v2
@@ -55,4 +70,7 @@ A wrapper around the Amazon Bedrock API written in Go
 	}
 
 	fmt.Println(out.Completion)
+
+}
+
 ```
