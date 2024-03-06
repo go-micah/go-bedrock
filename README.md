@@ -2,7 +2,7 @@
 
 # go-bedrock
 
-A wrapper around the Amazon Bedrock API written in Go
+Provider specific structs for the Amazon Bedrock API written in Go
 
 ## Use
 
@@ -22,19 +22,31 @@ import (
 
 func main() {
 
-	prompt := "Please write me a short poem about a chicken"
+	prompt := "Please write me a short poem about a chicken."
 
 	// prepare payload for Anthropic Claude v2
 	body := providers.AnthropicClaudeInvokeModelInput{
-		Prompt:            "Human: \n\nHuman: " + prompt + "\n\nAssistant:",
-		MaxTokensToSample: 500,
-		TopP:              0.999,
-		TopK:              250,
-		Temperature:       1,
-		StopSequences:     []string{`"\n\nHuman:\"`},
+		System: "Respond with just the poem, nothing else.",
+		Messages: []providers.AnthropicClaudeMessage{
+			{
+				Role: "user",
+				Content: []providers.AnthropicClaudeContent{
+					{
+						Type: "text",
+						Text: prompt,
+					},
+				},
+			},
+		},
+		MaxTokens:     500,
+		TopP:          0.999,
+		TopK:          250,
+		Temperature:   1,
+		StopSequences: []string{},
 	}
 
-	fmt.Println("Sending prompt to Anthropic Claude v2")
+	fmt.Println("Sending prompt to Anthropic Claude v3")
+	fmt.Println("")
 
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion("us-east-1"))
 	if err != nil {
@@ -45,7 +57,7 @@ func main() {
 
 	accept := "*/*"
 	contentType := "application/json"
-	modelId := "anthropic.claude-v2"
+	modelId := "anthropic.claude-3-sonnet-20240229-v1:0"
 
 	bodyString, err := json.Marshal(body)
 	if err != nil {
@@ -69,8 +81,9 @@ func main() {
 		fmt.Printf("unable to Unmarshal JSON, %v", err)
 	}
 
-	fmt.Println(out.Completion)
+	fmt.Println(out.Content[0].Text)
 
 }
+
 
 ```
