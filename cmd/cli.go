@@ -16,7 +16,7 @@ func main() {
 	prompt := "Please write me a short poem about a chicken."
 
 	// prepare payload for Anthropic Claude v2
-	body := providers.AnthropicClaudeInvokeModelInput{
+	body := providers.AnthropicClaudeMessagesInvokeModelInput{
 		System: "Respond with just the poem, nothing else.",
 		Messages: []providers.AnthropicClaudeMessage{
 			{
@@ -65,7 +65,7 @@ func main() {
 		log.Fatalf("error from Bedrock, %v", err)
 	}
 
-	var out providers.AnthropicClaudeInvokeModelOutput
+	var out providers.AnthropicClaudeMessagesInvokeModelOutput
 
 	err = json.Unmarshal(resp.Body, &out)
 	if err != nil {

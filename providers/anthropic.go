@@ -43,7 +43,7 @@ type AnthropicClaudeSource struct {
 	Data      string `json:"data"`
 }
 
-type AnthropicClaudeInvokeMessagesModelOutput struct {
+type AnthropicClaudeMessagesInvokeModelOutput struct {
 	Content    []AnthropicClaudeContent `json:"content"`
 	StopReason string                   `json:"stop_reason"`
 }
