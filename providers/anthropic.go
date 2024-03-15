@@ -44,6 +44,12 @@ type AnthropicClaudeSource struct {
 }
 
 type AnthropicClaudeMessagesInvokeModelOutput struct {
-	Content    []AnthropicClaudeContent `json:"content"`
-	StopReason string                   `json:"stop_reason"`
+	Type  string `json:"type,omitempty"`
+	Index int    `json:"index,omitempty"`
+	Delta struct {
+		Type string `json:"type,omitempty"`
+		Text string `json:"text,omitempty"`
+	} `json:"delta,omitempty"`
+	Content    []AnthropicClaudeContent `json:"content,omitempty"`
+	StopReason string                   `json:"stop_reason,omitempty"`
 }
