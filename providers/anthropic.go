@@ -32,9 +32,9 @@ type AnthropicClaudeMessage struct {
 }
 
 type AnthropicClaudeContent struct {
-	Type   string                  `json:"type"`
-	Text   string                  `json:"text,omitempty"`
-	Source []AnthropicClaudeSource `json:"source,omitempty"`
+	Type   string                `json:"type"`
+	Text   string                `json:"text,omitempty"`
+	Source AnthropicClaudeSource `json:"source,omitempty"`
 }
 
 type AnthropicClaudeSource struct {
