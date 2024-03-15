@@ -32,15 +32,15 @@ type AnthropicClaudeMessage struct {
 }
 
 type AnthropicClaudeContent struct {
-	Type   string                `json:"type"`
-	Text   string                `json:"text,omitempty"`
-	Source AnthropicClaudeSource `json:"source,omitempty"`
+	Type   string                 `json:"type"`
+	Text   string                 `json:"text,omitempty"`
+	Source *AnthropicClaudeSource `json:"source,omitempty"`
 }
 
 type AnthropicClaudeSource struct {
-	Type      string `json:"type"`
-	MediaType string `json:"media_type"`
-	Data      string `json:"data"`
+	Type      string `json:"type,omitempty"`
+	MediaType string `json:"media_type,omitempty"`
+	Data      string `json:"data,omitempty"`
 }
 
 type AnthropicClaudeMessagesInvokeModelOutput struct {
