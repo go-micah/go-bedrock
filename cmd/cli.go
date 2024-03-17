@@ -15,7 +15,7 @@ func main() {
 
 	prompt := "Please write me a short poem about a chicken."
 
-	// prepare payload for Anthropic Claude v2
+	// prepare payload for Anthropic Claude v3
 	body := providers.AnthropicClaudeMessagesInvokeModelInput{
 		System: "Respond with just the poem, nothing else.",
 		Messages: []providers.AnthropicClaudeMessage{

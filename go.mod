@@ -1,6 +1,6 @@
 module github.com/go-micah/go-bedrock
 
-go 1.21.5
+go 1.20
 
 require (
 	github.com/aws/aws-sdk-go-v2/config v1.26.1
