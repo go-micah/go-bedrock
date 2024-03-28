@@ -7,7 +7,7 @@ type CohereCommandInvokeModelInput struct {
 	TopK              float64  `json:"k"`
 	MaxTokensToSample int      `json:"max_tokens"`
 	StopSequences     []string `json:"stop_sequences"`
-	ReturnLiklihoods  string   `json:"return_likelihoods"`
+	ReturnLikelihoods string   `json:"return_likelihoods"`
 	Stream            bool     `json:"stream"`
 	NumGenerations    int      `json:"num_generations"`
 }
